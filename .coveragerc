@@ -1,6 +1,9 @@
 [run]
 source = cloud_entity_algorithm
-omit = cloud_entity_algorithm/__main__.py
+omit = 
+  cloud_entity_algorithm/__main__.py
+  cloud_entity_algorithm/__init__.py
+  cloud_entity_algorithm/_version.py
 
 [report]
 exclude_lines =
