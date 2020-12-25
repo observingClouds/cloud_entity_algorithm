@@ -8,9 +8,7 @@ import logging
 import os
 import subprocess
 import sys
-from collections import defaultdict
 from time import ctime
-
 import cftime
 import numpy as np
 import scipy.ndimage as ndimage
@@ -196,17 +194,6 @@ if RESAMPLE:
 
     Z = d["Zf"][:, :max_hgt_idx]
     ranges = d["range"][:max_hgt_idx]
-
-    # Check and remove duplicate timesteps
-    logging.info(
-        "Non unique timestamps: {}".format(len(Z.time) - len(np.unique(Z.time)))
-    )
-
-    # and remove where they occur
-    D = defaultdict(list)
-    for i, item in enumerate(list(Z.time.values)):
-        D[item].append(i)
-    D = defaultdict({k: v for k, v in D.items() if len(v) > 1})
 
     Z.load()
 

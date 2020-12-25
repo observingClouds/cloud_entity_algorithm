@@ -1,6 +1,7 @@
 """Entity helpers"""
 import numpy as np
 
+
 def estimate_cloud_type(cbhs, cths):
     """Estimate the cloud type of a cloud entity and
     for each profile within the entity (optional)
