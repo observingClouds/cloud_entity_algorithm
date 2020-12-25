@@ -1,0 +1,2 @@
+include versioneer.py
+include cloud_entity_algorithm/_version.py
