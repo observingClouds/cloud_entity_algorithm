@@ -16,8 +16,10 @@ import xarray as xr
 from netCDF4 import Dataset, num2date
 from skimage.measure import regionprops
 from tqdm import tqdm as tqdm
+from omegaconf import OmegaConf
 
 sys.path.insert(".")
+import _dataset_creator as dc  # noqa: E402
 import _entity_helpers as ent_hp  # noqa: E402
 import ccam  # noqa: E402
 
@@ -137,6 +139,11 @@ stencil_label = np.ones(input_args["cloud_stencil"])  # height, time
 date_YYYYMM = input_args["date"]
 date_YYMM = date_YYYYMM[2:]
 
+# Read in config files
+cfg_nc = OmegaConf.load('../config/netcdf_templates.yaml')
+cfg_args = OmegaConf.create({'stencil_label':stencil_label})
+cfg = OmegaConf.merge(cfg_nc, cfg_args)
+
 outputfmt = input_args["outputfilefmt"]
 filename_radar_monotonic = outputfmt.format(
     level="Z_gridded", date=date_YYYYMM
@@ -209,28 +216,20 @@ if RESAMPLE:
     times = num2date(times_unix, "seconds since 1970-01-01")
 
     # Create new dataset
-    ds = xr.Dataset()
+    runtime_cfg = OmegaConf({'time_dimension': Z.time, 'range_dimension': Z.range})
+    ds = dc.create_dataset(OmegaConf.merge(runtime_cfg, cfg.resampled))
     ds["Zf"] = Z
-    ds["time"].attrs["standard_name"] = "time"
-    ds["time"].attrs["axis"] = "T"
-    ds["time"].attrs["units"] = "seconds since 1970-01-01 00:00:00"
-    ds["time"].attrs["calendar"] = "gregorian"
-    ds.attrs["author"] = "Hauke Schulz (hauke.schulz@mpimet.mpg.de)"
-    ds.attrs["title"] = (
-        "Radar reflectivity on equidistant monotonic" " increasing time grid"
-    )
-    ds.attrs["source_files_used"] = np.array(input_radar_files)[idx_sort]
-    ds.attrs["creation_date"] = datetime.datetime.utcnow().strftime(
-        "%d/%m/%Y %H:%M UTC"
-    )
-    ds.attrs["created_with"] = (
-        script_name
-        + " with its last modification on "
-        + ctime(os.path.getmtime(os.path.realpath(__file__)))
-    )
-    ds.attrs["environment"] = "env:{}, numpy:{}".format(sys.version, np.__version__)
-    ds.attrs["version"] = git_module_version
-    ds.attrs["Conventions"] = "CF-1.7"
+
+    attrs_dict = {
+        'source_files_used' : np.array(input_radar_files)[idx_sort],
+        'creation_date' : datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+        'created_with' : script_name + " with its last modification on "
+                         + ctime(os.path.getmtime(os.path.realpath(__file__))),
+        'version' : git_module_version,
+        'environment' : "env:{}, numpy:{}".format(sys.version, np.__version__)
+    }
+    for attrs, val in attrs_dict.items():
+        ds[attrs] = val
 
     # Export resampled dataset
     logging.info("File written to {}".format(filename_radar_monotonic))
@@ -252,60 +251,36 @@ if LABELING:
     labels_smoothed = labels
 
     # Apply labels to original (undilated) data
-    labels_original = labels[np.asarray(data, dtype=bool)]
     labels_original = labels * np.asarray(data, dtype=bool)
     labels_original = np.where(
         labels_original == 0, np.nan, labels_original
     )  # remove zeros which are created by the 0-cloud-labels
 
     logging.info("Create label file {}".format(filename_label))
-    nc = Dataset(filename_label, "w")
-    dim_t = nc.createDimension("time", len(Z_.time))
-    dim_r = nc.createDimension("range", len(Z_.range))
+    runtime_cfg = OmegaConf.create({
+        'time_dimension' : Z_.time,
+        'range_dimension' : Z_.range,
+        'stencil_label' : str(stencil_label.shape),
+        'dBZ_threshold' : cloud_threshold
+    })
+    ds_label = dc.create_dataset(OmegaConf.merge(runtime_cfg,cfg))
+    attrs_dict = {
+        'source_files_used' : np.array(input_radar_files)[idx_sort],
+        'creation_date' : datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+        'created_with' : script_name + " with its last modification on "
+                         + ctime(os.path.getmtime(os.path.realpath(__file__))),
+        'version' : git_module_version,
+        'environment' : "env:{}, numpy:{}".format(sys.version, np.__version__)
+    }
+    for attrs, val in attrs_dict.items():
+        ds_label[attrs] = val
 
-    var_t = nc.createVariable("time", np.float64, ("time",), zlib=True)
-    var_t.units = "seconds since 1970-01-01 00:00:00"
-    var_t.calendar = "standard"
-    var_h = nc.createVariable("range", np.float, ("range",))
-    var_h.description = "height"
-    var_h.units = "m"
-    var_label = nc.createVariable("label", np.int, ("range", "time"), zlib=True)
-    var_label.stencil = str(stencil_label.shape)
-    var_label.reflectiviy_threshold = cloud_threshold
-    var_label.description = (
-        "Cloud entities created by applying a stencil"
-        "to radar reflectiviy field greater than defined"
-        "threshold"
-    )
-    var_label.units = ""
-    var_Z = nc.createVariable("Z", np.float, ("range", "time"), zlib=True)
-    var_Z.units = ""
+    ds['time'] = Z_.time
+    ds['range'] = Z_.range
+    ds['label'] = labels_original
+    ds['Z'] = data
 
-    nc.title = "Cloud entities on equidistant monotonic increasing time grid"
-    nc.description = (
-        "Cloud labels derived from radar reflectivity smoothed"
-        "before calculation by stencil to interconnect close-by"
-        "clouds"
-    )
-    nc.stencil_shape = str(stencil_label.shape)
-    nc.source_files_used = np.array(input_radar_files)[idx_sort]
-    nc.author = "Hauke Schulz (hauke.schulz@mpimet.mpg.de)"
-    nc.institute = "Max Planck Institute for Meteorology, Hamburg, Germany"
-    nc.creation_date = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
-    nc.created_with = (
-        script_name
-        + " with its last modification on "
-        + ctime(os.path.getmtime(os.path.realpath(__file__)))
-    )
-    nc.version = git_module_version
-    nc.environment = "env:{}, numpy:{}".format(sys.version, np.__version__)
-
-    var_t[:] = Z_.time
-    var_h[:] = Z_.range
-    var_label[:, :] = labels_original
-    var_Z[:, :] = data
-
-    nc.close()
+    ds_label.to_netcdf(filename_label)
 
 
 if ANALYSIS:
@@ -499,14 +474,9 @@ if ANALYSIS:
         "description"
     ] = "Cloud top height for each profile within a cloud entity."
 
-    # cloud_data_merged['time'].attrs['units'] = 'seconds since 1970-01-01 00:00:00 UTC'
-    # cloud_data_merged['time'].attrs['calendar'] = 'standard'
-
     # Prepare netCDF metainformation
-    cloud_data_merged.attrs["author"] = "Hauke Schulz (hauke.schulz@mpimet.mpg.de)"
-    cloud_data_merged.attrs[
-        "institute"
-    ] = "Max Planck Institute for Meteorology, Hamburg, Germany"
+    cloud_data_merged.attrs["author"] = f"{cfg.netcdf.author} (f{cfg.netcdf.email})"
+    cloud_data_merged.attrs["institute"] = cfg.netcdf.institute
     cloud_data_merged.attrs["created_on"] = datetime.datetime.utcnow().strftime(
         "%d/%m%/%Y %H:%M UTC"
     )
