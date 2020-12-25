@@ -1,7 +1,6 @@
 """
 Cloud entity analysis
 """
-
 import argparse
 import datetime
 import glob
@@ -12,7 +11,6 @@ import sys
 from collections import defaultdict
 from time import ctime
 
-import ccam
 import cftime
 import numpy as np
 import scipy.ndimage as ndimage
@@ -20,6 +18,10 @@ import xarray as xr
 from netCDF4 import Dataset, num2date
 from skimage.measure import regionprops
 from tqdm import tqdm as tqdm
+
+sys.path.insert(".")
+import _entity_helpers as ent_hp  # noqa: E402
+import ccam  # noqa: E402
 
 
 def get_args():
@@ -109,15 +111,22 @@ def setup_logging(verbose):
     )
 
 
-try:
-    git_module_version = (
-        subprocess.check_output(["git", "describe", "--dirty"]).strip().decode()
-    )
-except subprocess.CalledProcessError:
-    git_module_version = "--"
+def get_git_version():
+    """ Get git version of the current pwd"""
+    try:
+        version = (
+            subprocess.check_output(["git", "describe", "--dirty"]).strip().decode()
+        )
+    except subprocess.CalledProcessError:
+        version = "--"
 
+    return version
+
+
+git_module_version = get_git_version()
 input_args = get_args()
 setup_logging(input_args["verbose"])
+script_name = os.path.basename(__file__)
 
 # Settings
 RESAMPLE = True
@@ -197,9 +206,7 @@ if RESAMPLE:
     D = defaultdict(list)
     for i, item in enumerate(list(Z.time.values)):
         D[item].append(i)
-    D_ = {k: v for k, v in D.items() if len(v) > 1}
-    del D
-    D = D_
+    D = defaultdict({k: v for k, v in D.items() if len(v) > 1})
 
     Z.load()
 
@@ -219,7 +226,7 @@ if RESAMPLE:
     ds["Zf"] = Z
     ds["time"].attrs["standard_name"] = "time"
     ds["time"].attrs["axis"] = "T"
-    ds["time"].attrs["units"] = "seconds since 1970-01-01 00:00:00 UTC"
+    ds["time"].attrs["units"] = "seconds since 1970-01-01 00:00:00"
     ds["time"].attrs["calendar"] = "gregorian"
     ds.attrs["author"] = "Hauke Schulz (hauke.schulz@mpimet.mpg.de)"
     ds.attrs["title"] = (
@@ -230,7 +237,7 @@ if RESAMPLE:
         "%d/%m/%Y %H:%M UTC"
     )
     ds.attrs["created_with"] = (
-        os.path.basename(__file__)
+        script_name
         + " with its last modification on "
         + ctime(os.path.getmtime(os.path.realpath(__file__)))
     )
@@ -299,7 +306,7 @@ if LABELING:
     nc.institute = "Max Planck Institute for Meteorology, Hamburg, Germany"
     nc.creation_date = datetime.datetime.now().strftime("%d/%m/%Y %H:%M")
     nc.created_with = (
-        os.path.basename(__file__)
+        script_name
         + " with its last modification on "
         + ctime(os.path.getmtime(os.path.realpath(__file__)))
     )
@@ -329,100 +336,6 @@ if ANALYSIS:
     # Vectorize functions
     vf_range = np.vectorize(f_range, otypes=[np.float])
     vf_apply_cloudtype = np.vectorize(ccam.f_apply_cloudtype, otypes=[np.float])
-
-    def estimate_cloud_type(cbhs, cths):
-        """
-        Estimate the cloud type of a cloud entity and
-        for each profile within the entity (optional)
-        and return the specific indices.
-        """
-
-        StSc_idx = np.where((cbhs > 1) & (cbhs < 3))[0]
-        Cu_idx = np.where((cbhs > 0) & (cbhs < 1))[0]
-        ND = sum(~np.isnan(cbhs)) - len(Cu_idx) - len(StSc_idx)
-
-        possible_cloud_types = [-999, len(Cu_idx), len(StSc_idx), -999, ND]
-        # Sort cloud_type by occurrence
-        sorted_types = np.argsort(possible_cloud_types)[-2:]
-        entity_cloud_type = 0
-        for c_type in sorted_types:
-            if possible_cloud_types[c_type] > 0.1 * np.sum(~np.isnan(cbhs)):
-                entity_cloud_type += c_type
-            else:
-                continue
-
-        return entity_cloud_type, StSc_idx, Cu_idx, ND
-
-    def calculate_cbh_n_cth(cloud_edges, remove_nan=True):
-        """
-        Calculate cloud base height (cbh) and cloud
-        top height (cth) for every single profile
-        in the entities
-
-        IMPORTANT
-        ---------
-        Check that the cth is calculated correctly
-        """
-        if remove_nan:
-            cbhs = cloud_edges[1][~np.isnan(cloud_edges[1])]
-            cths = cloud_edges[0][~np.isnan(cloud_edges[0])]
-        else:
-            cbhs = cloud_edges[1]
-            cths = cloud_edges[0]
-
-        return cbhs, cths
-
-    def get_stsc_macrophysics(StSc_idx, cbhs, cths):
-        """
-        Calculate thickness, extent and other
-        macrophysical paramters of the StSc part
-        of the entity
-        """
-        # Thickness of each single StSc profile
-        # within entity
-        thicknesses = cths[StSc_idx] - cbhs[StSc_idx]
-
-        return (
-            np.min(thicknesses),
-            np.max(thicknesses),
-            np.mean(thicknesses),
-            np.std(thicknesses),
-        )
-
-    def get_nb_Cu_cores(cu_idx, threshold=1):
-        """
-        Retrieve number of cumulus cores
-        within the cloud entity
-
-        Input
-        -----
-        threshold : defines, how many different cloud
-            profiles other than Cu are allowed before
-            the Cu core are splitted. Default is 1
-            meaning no other cloud type between
-            Cu profiles is allowed.
-        >>> get_nb_Cu_cores([1,2,5,6,7,8,9,11,12,13],1)
-        3
-        """
-        cu_cores = np.count_nonzero(np.diff(cu_idx) > threshold) + 1
-        return cu_cores
-
-    def get_precip(Z, idx):
-        """
-        Length of surface precip events
-
-        Note
-        ----
-        This method do not care about different
-        Cu cores, the complete time of rain
-        underneath a entity is integrated.
-
-        >>>get_precip(np.array([[np.nan,np.nan,np.nan],[0,10,0],[-50,-40,-30]]))
-        1
-        """
-        # precip_len = np.count_nonzero(np.nanmean(Z[idx[0],0:3]) > -30)
-        precip_len = np.count_nonzero(np.nanmean(Z[idx[0], 0:3], axis=1) > 0)
-        return precip_len
 
     properties_str = [
         "cloud",
@@ -516,7 +429,7 @@ if ANALYSIS:
         cloud_edges = vf_range(cbhs_idx)
 
         entity_label = box.label
-        cbhs, cths = calculate_cbh_n_cth(cloud_edges, remove_nan=False)
+        cbhs, cths = ent_hp.calculate_cbh_n_cth(cloud_edges, remove_nan=False)
         for ii, i in enumerate(range(idx[1].min(), idx[1].max())):
             CBH[idx[0][np.where(idx[1] == i)], i] = cbhs[ii]
             CTH[idx[0][np.where(idx[1] == i)], i] = cths[ii]
@@ -524,13 +437,15 @@ if ANALYSIS:
         cths = cths[~np.isnan(cths)]
 
         entity_len = len(cbhs)
-        entity_cloud_type, StSc_idx, Cu_idx, ND_len = estimate_cloud_type(cbhs, cths)
+        entity_cloud_type, StSc_idx, Cu_idx, ND_len = ent_hp.estimate_cloud_type(
+            cbhs, cths
+        )
         StSc_extent = len(StSc_idx)
         Cu_extent = len(Cu_idx)
 
         if Cu_extent > 0:
             # Number of cumulus cores
-            Cu_cores_nb = get_nb_Cu_cores(Cu_idx, threshold=1)
+            Cu_cores_nb = ent_hp.get_nb_Cu_cores(Cu_idx, threshold=1)
 
             # In case there is only one Cu, where would be its center (time)
             if Cu_cores_nb == 1:
@@ -539,7 +454,7 @@ if ANALYSIS:
                 )
 
             # Precipitation
-            precip_extent = get_precip(data, idx)
+            precip_extent = ent_hp.get_precip(data, idx)
 
         if StSc_extent > 0:
             (
@@ -547,7 +462,7 @@ if ANALYSIS:
                 StSc_thickness_max,
                 StSc_thickness_mean,
                 StSc_thickness_std,
-            ) = get_stsc_macrophysics(StSc_idx, cbhs, cths)
+            ) = ent_hp.get_stsc_macrophysics(StSc_idx, cbhs, cths)
 
         # Write results to array
         properties = [
@@ -609,7 +524,7 @@ if ANALYSIS:
         "%d/%m%/%Y %H:%M UTC"
     )
     cloud_data_merged.attrs["created_with"] = (
-        os.path.basename(__file__)
+        script_name
         + " with its last modification on "
         + ctime(os.path.getmtime(os.path.realpath(__file__)))
     )
