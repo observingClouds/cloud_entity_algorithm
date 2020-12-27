@@ -39,7 +39,6 @@ import xarray as xr
 
 def create_dataset(cfg):
     ds = xr.Dataset()
-    import pdb; pdb.set_trace()
     ds = set_global_attrs(cfg, ds)
     ds = set_coords(cfg, ds)
     ds = set_variables(cfg, ds)
