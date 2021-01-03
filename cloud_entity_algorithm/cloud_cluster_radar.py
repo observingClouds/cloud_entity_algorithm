@@ -288,7 +288,7 @@ if LABELING:
     ds_label["label"].data = labels_original.T
     ds_label["Z"].data = data.T
 
-    ds_label.to_netcdf(filename_label)
+    ds_label.to_netcdf(filename_label, encoding={'Z':{'zlib':True}, 'label':{'zlib':True}})
 
 
 if ANALYSIS:
