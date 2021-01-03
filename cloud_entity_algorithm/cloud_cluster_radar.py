@@ -306,7 +306,7 @@ if ANALYSIS:
 
     # Vectorize functions
     vf_range = np.vectorize(f_range, otypes=[np.float])
-    vf_apply_cloudtype = np.vectorize(ccam.f_apply_cloudtype, otypes=[np.float])
+    # vf_apply_cloudtype = np.vectorize(ccam.f_apply_cloudtype, otypes=[np.float])
 
     properties_str = [
         "cloud",
