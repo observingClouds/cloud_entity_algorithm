@@ -2,8 +2,6 @@
 # -*- coding: utf-8 -*-
 """Setup the package cloud_entity_algorithm."""
 
-from runpy import run_path
-
 from setuptools import find_packages, setup
 
 import versioneer
