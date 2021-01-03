@@ -19,8 +19,6 @@ def estimate_cloud_type(cbhs, cths):
     for c_type in sorted_types:
         if possible_cloud_types[c_type] > 0.1 * np.sum(~np.isnan(cbhs)):
             entity_cloud_type += c_type
-        else:
-            continue
 
     return entity_cloud_type, StSc_idx, Cu_idx, ND
 
