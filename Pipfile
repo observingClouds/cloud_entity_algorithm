@@ -7,6 +7,14 @@ verify_ssl = true
 python_version = "3.6"
 
 [packages]
+numpy = "*"
+scipy = "*"
+xarray = "*"
+scikit-image = "*"
+omegaconf = "*"
+netCDF4 = "*"
+cftime = "*"
+
 
 [dev-packages]
 black = "==20.8b1"
