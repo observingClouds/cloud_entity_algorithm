@@ -12,6 +12,20 @@ def test_estimate_cloud_type():
     assert np.all(c == np.array([1], dtype="int64"))
     assert n == 4
 
+    t, s, c, n = eh.estimate_cloud_type(
+        np.array([1, 1, 1, 1, 1, 1.5]), np.array([1.4, 2, 1.5, 1.5, 1.5, 1.6])
+    )
+    assert t == 6
+    assert np.all(s == np.array([5], dtype="int64"))
+    assert np.all(c == np.array([], dtype="int64"))
+    assert n == 5
+
+    t, s, c, n = eh.estimate_cloud_type(np.array([]), np.array([]))
+    assert t == 0
+    assert np.all(s == np.array([], dtype="int64"))
+    assert np.all(c == np.array([], dtype="int64"))
+    assert n == 0
+
 
 def test_calculate_cbh_n_cth():
     b, t = eh.calculate_cbh_n_cth(np.array([3, 0.7]))
@@ -31,6 +45,7 @@ def test_get_stsc_macrophysics():
 
 def test_get_nb_Cu_cores():
     assert eh.get_nb_Cu_cores([1, 2, 5, 6, 7, 8, 9, 11, 12, 13], 1) == 3.0
+    assert eh.get_nb_Cu_cores([1, 2, 5, 6, 7, 8, 9, 11, 12, 13]) == 3.0
     assert eh.get_nb_Cu_cores([1, 2, 5, 6, 7, 8, 9, 11, 12, 13], 3) == 1.0
 
 
