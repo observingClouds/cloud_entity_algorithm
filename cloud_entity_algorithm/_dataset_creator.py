@@ -35,37 +35,43 @@ the one above, e.g.
 
 """
 import logging
+
 import xarray as xr
+
 
 def create_dataset(cfg):
     ds = xr.Dataset()
-    import pdb; pdb.set_trace()
     ds = set_global_attrs(cfg, ds)
     ds = set_coords(cfg, ds)
     ds = set_variables(cfg, ds)
     return ds
 
+
 def set_global_attrs(cfg, ds):
     logging.debug("Add global attributes")
-    if 'global_attrs' in cfg.keys():
-        ds.attrs = cfg['global_attrs']
+    if "global_attrs" in cfg.keys():
+        ds.attrs = cfg["global_attrs"]
     return ds
 
+
 def set_coords(cfg, ds):
-    if 'coordinates' in cfg.keys():
+    if "coordinates" in cfg.keys():
         for coord, params in cfg.coordinates.items():
-            if type(params['dimension']) == int:
-                ds = ds.assign_coords({coord: range(params['dimension'])})  # write temporary values to coord
+            if type(params["dimension"]) == int:
+                ds = ds.assign_coords(
+                    {coord: range(params["dimension"])}
+                )  # write temporary values to coord
             else:
-                ds = ds.assign_coords({coord: params['dimension']})
-            ds[coord].attrs = params['attrs']
+                ds = ds.assign_coords({coord: params["dimension"]})
+            ds[coord].attrs = params["attrs"]
     return ds
+
 
 def set_variables(cfg, ds):
     logging.debug("Add variables to dataset")
-    if 'variables' in cfg.keys():
+    if "variables" in cfg.keys():
         for var, params in cfg.variables.items():
             coord_dict = {coord: ds[coord] for coord in params.coordinates}
             ds[var] = xr.DataArray(None, coords=coord_dict, dims=params.coordinates)
-            ds[var].attrs = params['attrs']
+            ds[var].attrs = params["attrs"]
     return ds
