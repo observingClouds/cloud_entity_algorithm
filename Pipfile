@@ -3,9 +3,6 @@ name = "pypi"
 url = "https://pypi.python.org/simple"
 verify_ssl = true
 
-[requires]
-python_version = "3.6"
-
 [packages]
 numpy = "*"
 scipy = "*"
@@ -14,6 +11,9 @@ scikit-image = "*"
 omegaconf = "*"
 netCDF4 = "*"
 cftime = "*"
+tqdm = "*"
+dask = "*"
+toolz = "*"
 
 
 [dev-packages]
