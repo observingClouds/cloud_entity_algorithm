@@ -217,7 +217,9 @@ if RESAMPLE:
     times = num2date(times_unix, "seconds since 1970-01-01")
 
     # Create new dataset
-    runtime_cfg = OmegaConf.create({"time_dimension": Z.time, "range_dimension": Z.range})
+    runtime_cfg = OmegaConf.create(
+        {"time_dimension": Z.time, "range_dimension": Z.range}
+    )
     ds = dc.create_dataset(OmegaConf.merge(runtime_cfg, cfg.resampled))
     ds["Zf"] = Z
 
@@ -483,7 +485,7 @@ if ANALYSIS:
     cloud_data_merged.attrs["author"] = f"{cfg.netcdf.author} (f{cfg.netcdf.email})"
     cloud_data_merged.attrs["institute"] = cfg.netcdf.institute
     cloud_data_merged.attrs["created_on"] = datetime.datetime.utcnow().strftime(
-        "%d/%m%/%Y %H:%M UTC"
+        "%d/%m/%Y %H:%M UTC"
     )
     cloud_data_merged.attrs["created_with"] = (
         script_name
