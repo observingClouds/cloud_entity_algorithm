@@ -63,7 +63,8 @@ def set_coords(cfg, ds):
                 )  # write temporary values to coord
             else:
                 ds = ds.assign_coords({coord: params["dimension"]})
-            ds[coord].attrs = params["attrs"]
+            if "attrs" in params.keys():
+                ds[coord].attrs = params["attrs"]
     return ds
 
 
@@ -73,5 +74,6 @@ def set_variables(cfg, ds):
         for var, params in cfg.variables.items():
             coord_dict = {coord: ds[coord] for coord in params.coordinates}
             ds[var] = xr.DataArray(None, coords=coord_dict, dims=params.coordinates)
-            ds[var].attrs = params["attrs"]
+            if "attrs" in params.keys():
+                ds[var].attrs = params["attrs"]
     return ds
