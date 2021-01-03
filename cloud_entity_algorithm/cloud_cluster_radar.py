@@ -141,8 +141,8 @@ date_YYYYMM = input_args["date"]
 date_YYMM = date_YYYYMM[2:]
 
 # Read in config files
-cfg_nc = OmegaConf.load('../config/netcdf_templates.yaml')
-cfg_args = OmegaConf.create({'stencil_label':stencil_label})
+cfg_nc = OmegaConf.load("../config/netcdf_templates.yaml")
+cfg_args = OmegaConf.create({"stencil_label": stencil_label})
 cfg = OmegaConf.merge(cfg_nc, cfg_args)
 
 outputfmt = input_args["outputfilefmt"]
@@ -217,17 +217,18 @@ if RESAMPLE:
     times = num2date(times_unix, "seconds since 1970-01-01")
 
     # Create new dataset
-    runtime_cfg = OmegaConf({'time_dimension': Z.time, 'range_dimension': Z.range})
+    runtime_cfg = OmegaConf.create({"time_dimension": Z.time, "range_dimension": Z.range})
     ds = dc.create_dataset(OmegaConf.merge(runtime_cfg, cfg.resampled))
     ds["Zf"] = Z
 
     attrs_dict = {
-        'source_files_used' : np.array(input_radar_files)[idx_sort],
-        'creation_date' : datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
-        'created_with' : script_name + " with its last modification on "
-                         + ctime(os.path.getmtime(os.path.realpath(__file__))),
-        'version' : git_module_version,
-        'environment' : "env:{}, numpy:{}".format(sys.version, np.__version__)
+        "source_files_used": np.array(input_radar_files)[idx_sort],
+        "creation_date": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "created_with": script_name
+        + " with its last modification on "
+        + ctime(os.path.getmtime(os.path.realpath(__file__))),
+        "version": git_module_version,
+        "environment": "env:{}, numpy:{}".format(sys.version, np.__version__),
     }
     for attrs, val in attrs_dict.items():
         ds[attrs] = val
@@ -258,28 +259,31 @@ if LABELING:
     )  # remove zeros which are created by the 0-cloud-labels
 
     logging.info("Create label file {}".format(filename_label))
-    runtime_cfg = OmegaConf.create({
-        'time_dimension' : Z_.time,
-        'range_dimension' : Z_.range,
-        'stencil_label' : str(stencil_label.shape),
-        'dBZ_threshold' : cloud_threshold
-    })
-    ds_label = dc.create_dataset(OmegaConf.merge(runtime_cfg,cfg))
+    runtime_cfg = OmegaConf.create(
+        {
+            "time_dimension": Z_.time,
+            "range_dimension": Z_.range,
+            "stencil_label": str(stencil_label.shape),
+            "dBZ_threshold": cloud_threshold,
+        }
+    )
+    ds_label = dc.create_dataset(OmegaConf.merge(runtime_cfg, cfg))
     attrs_dict = {
-        'source_files_used' : np.array(input_radar_files)[idx_sort],
-        'creation_date' : datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
-        'created_with' : script_name + " with its last modification on "
-                         + ctime(os.path.getmtime(os.path.realpath(__file__))),
-        'version' : git_module_version,
-        'environment' : "env:{}, numpy:{}".format(sys.version, np.__version__)
+        "source_files_used": np.array(input_radar_files)[idx_sort],
+        "creation_date": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
+        "created_with": script_name
+        + " with its last modification on "
+        + ctime(os.path.getmtime(os.path.realpath(__file__))),
+        "version": git_module_version,
+        "environment": "env:{}, numpy:{}".format(sys.version, np.__version__),
     }
     for attrs, val in attrs_dict.items():
         ds_label[attrs] = val
 
-    ds['time'] = Z_.time
-    ds['range'] = Z_.range
-    ds['label'] = labels_original
-    ds['Z'] = data
+    ds["time"] = Z_.time
+    ds["range"] = Z_.range
+    ds["label"] = labels_original
+    ds["Z"] = data
 
     ds_label.to_netcdf(filename_label)
 
