@@ -116,14 +116,14 @@ def get_git_version():
     """ Get git version of the current pwd"""
     try:
         version = (
-            subprocess.check_output(["git", "describe", "--dirty"]).strip().decode()
+            subprocess.check_output(["git", "describe", "--dirty", "--always"]).strip().decode()
         )
     except subprocess.CalledProcessError:
         version = "--"
 
     return version
 
-
+import pdb; pdb.set_trace()
 git_module_version = get_git_version()
 input_args = get_args()
 setup_logging(input_args["verbose"])
