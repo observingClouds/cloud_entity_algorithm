@@ -5,7 +5,6 @@ This module contains functions for cloud cluster identification
 and analysis
 """
 import numpy as np
-from scipy.ndimage import binary_dilation, label
 
 
 def add_boundary_to_cloud_slice(c_slice):
@@ -86,4 +85,3 @@ def f_cloud_edges(c_slice, verbose=False):
         print(base_idx, top_idx)
 
     return np.array([base_idx, top_idx])
-
