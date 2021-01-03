@@ -123,7 +123,6 @@ def get_git_version():
 
     return version
 
-import pdb; pdb.set_trace()
 git_module_version = get_git_version()
 input_args = get_args()
 setup_logging(input_args["verbose"])
