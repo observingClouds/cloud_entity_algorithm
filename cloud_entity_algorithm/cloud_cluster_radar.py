@@ -9,19 +9,20 @@ import os
 import subprocess
 import sys
 from time import ctime
+
+import _dataset_creator as dc  # noqa: E402
+import _entity_helpers as ent_hp  # noqa: E402
+import ccam  # noqa: E402
 import cftime
 import numpy as np
 import scipy.ndimage as ndimage
 import xarray as xr
-from netCDF4 import Dataset, num2date
+from netCDF4 import num2date
+from omegaconf import OmegaConf
 from skimage.measure import regionprops
 from tqdm import tqdm as tqdm
-from omegaconf import OmegaConf
 
-sys.path.insert(".")
-import _dataset_creator as dc  # noqa: E402
-import _entity_helpers as ent_hp  # noqa: E402
-import ccam  # noqa: E402
+sys.path.append(".")
 
 
 def get_args():
