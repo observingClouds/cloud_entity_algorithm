@@ -213,7 +213,7 @@ if RESAMPLE:
         times_unix = np.int64(Z_.time.values) / 1e9
     except ValueError:
         times_unix = cftime.date2num(Z_.time.values, "seconds since 1970-1-1")
-    Z.time.values = times_unix
+    Z = Z.assign_coords({'time':times_unix})
     times = num2date(times_unix, "seconds since 1970-01-01")
 
     # Create new dataset
@@ -284,8 +284,7 @@ if LABELING:
     for attrs, val in attrs_dict.items():
         ds_label.attrs[attrs] = val
 
-    ds_label["time"].data = Z_.time
-    ds_label["range"].data = Z_.range
+    ds_label = ds_label.assign_coords({"time": Z_.time, "range": Z_.range})
     ds_label["label"].data = labels_original.T
     ds_label["Z"].data = data.T
 
