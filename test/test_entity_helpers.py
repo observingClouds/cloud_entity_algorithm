@@ -3,7 +3,7 @@ import numpy as np
 import cloud_entity_algorithm._entity_helpers as eh
 
 
-def test_estimate_clouud_type():
+def test_estimate_cloud_type():
     t, s, c, n = eh.estimate_cloud_type(
         np.array([1, 0.7, 1, 1, 1, 1.5, 1.5]), np.array([1.4, 2, 1.5, 1.5, 1.5, 1.6, 4])
     )
@@ -17,6 +17,9 @@ def test_calculate_cbh_n_cth():
     b, t = eh.calculate_cbh_n_cth(np.array([3, 0.7]))
     assert b == np.array([0.7])
     assert t == np.array([3.0])
+    b, t = eh.calculate_cbh_n_cth(np.array([np.nan, 0.7]), remove_nan=False)
+    assert b == np.array([0.7])
+    assert np.isnan(t)
 
 
 def test_get_stsc_macrophysics():
