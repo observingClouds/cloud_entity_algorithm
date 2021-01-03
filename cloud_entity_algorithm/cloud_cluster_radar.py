@@ -142,7 +142,7 @@ date_YYMM = date_YYYYMM[2:]
 
 # Read in config files
 cfg_nc = OmegaConf.load("../config/netcdf_templates.yaml")
-cfg_args = OmegaConf.create({"stencil_label": stencil_label})
+cfg_args = OmegaConf.create({"stencil_label": np.shape(stencil_label)})
 cfg = OmegaConf.merge(cfg_nc, cfg_args)
 
 outputfmt = input_args["outputfilefmt"]
@@ -218,11 +218,13 @@ if RESAMPLE:
 
     # Create new dataset
     runtime_cfg = OmegaConf.create(
-        {"time_dimension": Z.time, "range_dimension": Z.range}
+        {
+            "time_dimension": list([float(t) for t in Z.time]),
+            "range_dimension": list([float(r) for r in Z.range]),
+        }
     )
-    ds = dc.create_dataset(OmegaConf.merge(runtime_cfg, cfg.resampled))
-    ds["Zf"] = Z
-
+    ds = dc.create_dataset(OmegaConf.merge(runtime_cfg, cfg.datasets.resampled))
+    ds["Zf"].data = Z
     attrs_dict = {
         "source_files_used": np.array(input_radar_files)[idx_sort],
         "creation_date": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -233,7 +235,7 @@ if RESAMPLE:
         "environment": "env:{}, numpy:{}".format(sys.version, np.__version__),
     }
     for attrs, val in attrs_dict.items():
-        ds[attrs] = val
+        ds.attrs[attrs] = val
 
     # Export resampled dataset
     logging.info("File written to {}".format(filename_radar_monotonic))
@@ -263,13 +265,13 @@ if LABELING:
     logging.info("Create label file {}".format(filename_label))
     runtime_cfg = OmegaConf.create(
         {
-            "time_dimension": Z_.time,
-            "range_dimension": Z_.range,
+            "time_dimension": list([float(t) for t in Z_.time]),
+            "range_dimension": list([float(r) for r in Z_.range]),
             "stencil_label": str(stencil_label.shape),
             "dBZ_threshold": cloud_threshold,
         }
     )
-    ds_label = dc.create_dataset(OmegaConf.merge(runtime_cfg, cfg))
+    ds_label = dc.create_dataset(OmegaConf.merge(runtime_cfg, cfg.datasets.labeled))
     attrs_dict = {
         "source_files_used": np.array(input_radar_files)[idx_sort],
         "creation_date": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -280,12 +282,12 @@ if LABELING:
         "environment": "env:{}, numpy:{}".format(sys.version, np.__version__),
     }
     for attrs, val in attrs_dict.items():
-        ds_label[attrs] = val
+        ds_label.attrs[attrs] = val
 
-    ds["time"] = Z_.time
-    ds["range"] = Z_.range
-    ds["label"] = labels_original
-    ds["Z"] = data
+    ds_label["time"].data = Z_.time
+    ds_label["range"].data = Z_.range
+    ds_label["label"].data = labels_original.T
+    ds_label["Z"].data = data.T
 
     ds_label.to_netcdf(filename_label)
 
@@ -327,14 +329,14 @@ if ANALYSIS:
     # Loading data
     labels_netCDF = xr.open_dataset(filename_label, decode_times=False)
     labels_netCDF.load()
-    labels = labels_netCDF["label"]
-    data = labels_netCDF["Z"]
+    labels = labels_netCDF["label"].T
+    data = labels_netCDF["Z"].T
     ranges = labels_netCDF["range"] / 1000
     times = num2date(labels_netCDF["time"] / 1e9, "seconds since 1970-01-01")
 
     # Create slices
     labels_0 = np.where(np.isnan(labels), 0, labels)  # find_objects cannot handle nan
-    labels_0 = np.where(labels < 0, 0, labels)  # find_objects cannot handle nan
+    # labels_0 = np.where(labels < 0, 0, labels)  # find_objects cannot handle nan
     # ndimage.find_obejct finds peaces of the same label and returns
     #  the minimum dimension of the slice containing the labels
     cloud_slices = ndimage.find_objects(
@@ -482,8 +484,8 @@ if ANALYSIS:
     ] = "Cloud top height for each profile within a cloud entity."
 
     # Prepare netCDF metainformation
-    cloud_data_merged.attrs["author"] = f"{cfg.netcdf.author} (f{cfg.netcdf.email})"
-    cloud_data_merged.attrs["institute"] = cfg.netcdf.institute
+    cloud_data_merged.attrs["author"] = cfg.user.author_str
+    cloud_data_merged.attrs["institute"] = cfg.user.institute
     cloud_data_merged.attrs["created_on"] = datetime.datetime.utcnow().strftime(
         "%d/%m/%Y %H:%M UTC"
     )

@@ -1,16 +1,20 @@
 user:
     author: Hauke Schulz
     email: hauke.schulz@mpimet.mpg.de
-    author_str: '${author} (${email})'
-    institute: "Max Planck Institute for Meteorology, Hamburg, Germany"
+    author_str: &author_str 'Hauke Schulz (hauuke.schulz@mpimet.mpg.de)'
+    institute: &institute "Max Planck Institute for Meteorology, Hamburg, Germany"
 
 datasets:
     resampled:
         global_attrs:
             title: "Radar reflectivity on equidistant monotonic increasing time grid"
+            author: *author_str
+            institute: *institute
             Conventions: "CF-1.6"
         variables:
             Zf:
+                attrs:
+                    units: ""
                 coordinates:
                     - time
                     - range
@@ -33,15 +37,15 @@ datasets:
             title: "Cloud entities on equidistant monotonic increasing time grid"
             description: "Cloud labels derived from radar reflectivity smoothed
                             before calculation by stencil to interconnect close-by clouds"
-            author: '${author_str}'
-            institute: '${institute}'
+            author: *author_str
+            institute: *institute
             Conventions: "CF-1.6"
 
         coordinates:
             time:
                 attrs:
-                    units: "seconds since 1970-01-01 00:00:00"
-                    calendar: "standard"
+                        #units: "seconds since 1970-01-01 00:00:00"
+                        #calendar: "standard"
                     axis: "T"
                     standard_name: "time"
                 dimension: ${time_dimension}
