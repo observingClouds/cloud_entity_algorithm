@@ -31,6 +31,7 @@ def test_get_stsc_macrophysics():
 
 def test_get_nb_Cu_cores():
     assert eh.get_nb_Cu_cores([1, 2, 5, 6, 7, 8, 9, 11, 12, 13], 1) == 3.0
+    assert eh.get_nb_Cu_cores([1, 2, 5, 6, 7, 8, 9, 11, 12, 13], 3) == 1.0
 
 
 def test_get_precip():
