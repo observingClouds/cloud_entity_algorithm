@@ -96,7 +96,6 @@ def get_args():
         help="Minimum percentage of cloud type characteristca that need to be present within an entity to regard this cloud type in the overall classification",
         required=False,
         default=10,
-        nargs=1,
         type=int,
     )
 
@@ -149,8 +148,8 @@ max_hgt_idx = input_args["max_range"]
 stencil_label = np.ones(input_args["cloud_stencil"])  # height, time
 date_YYYYMM = input_args["date"]
 date_YYMM = date_YYYYMM[2:]
-min_cloud_percentage = input_args["min-cloud-type"]
-
+min_cloud_percentage = input_args["min_cloud_type"]
+print(min_cloud_percentage)
 # Read in config files
 cfg_nc = OmegaConf.load("../config/netcdf_templates.yaml")
 cfg_args = OmegaConf.create({"stencil_label": np.shape(stencil_label)})
