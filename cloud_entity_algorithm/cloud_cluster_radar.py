@@ -90,6 +90,17 @@ def get_args():
     )
 
     parser.add_argument(
+        "-m",
+        "--min-cloud-type",
+        metavar='XX %',
+        help="Minimum percentage of cloud type characteristca that need to be present within an entity to regard this cloud type in the overall classification",
+        required=False,
+        default=10,
+        nargs=1,
+        type=int,
+    )
+
+    parser.add_argument(
         "-v",
         "--verbose",
         metavar="DEBUG",
@@ -138,6 +149,7 @@ max_hgt_idx = input_args["max_range"]
 stencil_label = np.ones(input_args["cloud_stencil"])  # height, time
 date_YYYYMM = input_args["date"]
 date_YYMM = date_YYYYMM[2:]
+min_cloud_percentage = input_args["min-cloud-type"]
 
 # Read in config files
 cfg_nc = OmegaConf.load("../config/netcdf_templates.yaml")
@@ -407,7 +419,7 @@ if ANALYSIS:
 
         entity_len = len(cbhs)
         entity_cloud_type, StSc_idx, Cu_idx, ND_len = ent_hp.estimate_cloud_type(
-            cbhs, cths
+            cbhs, cths, min_ctype_percentage=min_cloud_percentage
         )
         StSc_extent = len(StSc_idx)
         Cu_extent = len(Cu_idx)
@@ -480,6 +492,13 @@ if ANALYSIS:
     cloud_data_merged["CTH"].attrs[
         "description"
     ] = "Cloud top height for each profile within a cloud entity."
+    cloud_data_merged["entity_cloud_type"].attrs = {
+            "long_name" : "cloud type estimate",
+            "description" : "cloud type estimate via analysis of CBH distribution",
+            "min_cloud_percentage" : min_cloud_percentage,
+            "flag_values" : [0, 1, 2, 3, 4, 5, 6, 7],
+            "flag_meanings" : "unknown Cu St Cu+St CBH>3km Cu+CBH>3km St+CBH>3km Cu+St+CBH>3km" 
+            }
 
     # Prepare netCDF metainformation
     cloud_data_merged.attrs["author"] = cfg.user.author_str

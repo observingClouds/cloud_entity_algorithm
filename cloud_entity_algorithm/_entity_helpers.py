@@ -2,7 +2,7 @@
 import numpy as np
 
 
-def estimate_cloud_type(cbhs, cths):
+def estimate_cloud_type(cbhs, cths, min_ctype_percentage=10):
     """Estimate the cloud type of a cloud entity and
     for each profile within the entity (optional)
     and return the specific indices.
@@ -17,7 +17,7 @@ def estimate_cloud_type(cbhs, cths):
     sorted_types = np.argsort(possible_cloud_types)[-2:]
     entity_cloud_type = 0
     for c_type in sorted_types:
-        if possible_cloud_types[c_type] > 0.1 * np.sum(~np.isnan(cbhs)):
+        if possible_cloud_types[c_type] > min_ctype_percentage/100 * np.sum(~np.isnan(cbhs)):
             entity_cloud_type += c_type
 
     return entity_cloud_type, StSc_idx, Cu_idx, ND
