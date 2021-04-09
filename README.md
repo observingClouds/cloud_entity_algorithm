@@ -1,4 +1,5 @@
 # Cloud Entity Algorithm
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4415834.svg)](https://doi.org/10.5281/zenodo.4415834)
 
 This algorithm has been developed to detect individual clouds in radar time-series,
 especially those captured at the
