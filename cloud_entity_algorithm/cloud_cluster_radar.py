@@ -33,7 +33,7 @@ def get_args():
         metavar="/path/to/inputfile_{date}.nc",
         required=False,
         help="Provide filenamefmt of the input.",
-        default="MMCR__MBR__Spectral_Moments__10s__155m-*km__{date}0?.nc",
+        default="MMCR__MBR__Spectral_Moments__10s__155m-*km__{date}??.nc",
     )
     parser.add_argument(
         "-o",
