@@ -391,12 +391,12 @@ if ANALYSIS:
     ]
 
     # Loading data
-    labels_netCDF = xr.open_dataset(filename_label, decode_times=False)
+    labels_netCDF = xr.open_dataset(filename_label)
     labels_netCDF.load()
     labels = labels_netCDF["label"].T
     data = labels_netCDF["Z"].T
     ranges = labels_netCDF["range"] / 1000
-    times = num2date(labels_netCDF["time"] / 1e9, "seconds since 1970-01-01")
+    times = labels_netCDF["time"]  # num2date(labels_netCDF["time"] / 1e9, "seconds since 1970-01-01")
 
     # Create slices
     labels_0 = np.where(np.isnan(labels), 0, labels)  # find_objects cannot handle nan
@@ -466,8 +466,8 @@ if ANALYSIS:
         # Indices/Position within label file
         idx = box.coords.T  # (timeidx,hgt_idx)
 
-        entity_start_time = np.int(Z_.time[idx[1].min()].values)
-        entity_stop_time = np.int(Z_.time[idx[1].max()].values)
+        entity_start_time = np.int(labels_netCDF.time[idx[1].min()].values)
+        entity_stop_time = np.int(labels_netCDF.time[idx[1].max()].values)
         entity_start_idx = idx[1].min()
 
         #  Disregard if cloud is too small (number of labels)
@@ -638,7 +638,7 @@ if ANALYSIS:
     cloud_data_merged.to_netcdf(
         filename_entity,
         encoding={
-            "Zf": {"zlib": True},
+            "Z": {"zlib": True},
             "label": {"zlib": True},
             "CTH": {"zlib": True},
             "CBH": {"zlib": True},
