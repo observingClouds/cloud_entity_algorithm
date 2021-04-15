@@ -14,7 +14,7 @@ datasets:
         variables:
             Zf:
                 attrs:
-                    units: ""
+                    units: "dBZ"
                 coordinates:
                     - time
                     - range

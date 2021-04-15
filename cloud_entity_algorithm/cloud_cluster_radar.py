@@ -115,7 +115,7 @@ def get_args():
         "-m",
         "--min-cloud-type",
         metavar='XX %',
-        help="Minimum percentage of cloud type characteristca that need to be present within an entity to regard this cloud type in the overall classification",
+        help="Minimum percentage of cloud type characteristica that need to be present within an entity to regard this cloud type in the overall classification",
         required=False,
         default=10,
         type=int,
@@ -271,6 +271,7 @@ if RESAMPLE:
     times = num2date(times_unix, "seconds since 1970-01-01")
 
     # Create new dataset
+    logging.info("Create output dataset")
     runtime_cfg = OmegaConf.create(
         {
             "time_dimension": list([float(t) for t in Z.time]),
@@ -297,8 +298,8 @@ if RESAMPLE:
         ds.attrs[attrs] = val
 
     # Export resampled dataset
-    logging.info("File written to {}".format(filename_radar_monotonic))
     ds.to_netcdf(filename_radar_monotonic, encoding={"Zf": {"zlib": True}})
+    logging.info("File written to {}".format(filename_radar_monotonic))
 
 if LABELING:
     logging.info("Finding entities")
@@ -611,7 +612,7 @@ if ANALYSIS:
             "description" : "cloud type estimate via analysis of CBH distribution",
             "min_cloud_percentage" : min_cloud_percentage,
             "flag_values" : [0, 1, 2, 3, 4, 5, 6, 7],
-            "flag_meanings" : "unknown Cu St Cu+St CBH>3km Cu+CBH>3km St+CBH>3km Cu+St+CBH>3km" 
+            "flag_meanings" : "unknown Cu St Cu+St CBH>3km Cu+CBH>3km St+CBH>3km Cu+St+CBH>3km"
             }
 
     # Prepare netCDF metainformation
