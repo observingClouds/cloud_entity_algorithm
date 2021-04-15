@@ -85,3 +85,23 @@ def f_cloud_edges(c_slice, verbose=False):
         print(base_idx, top_idx)
 
     return np.array([base_idx, top_idx])
+
+
+def calc_hgt_of_max_cf(cloud_field, priority="highest_first"):
+    """
+    Function to retrieve height that has the hightest
+    cloud fraction within the regarded period.
+
+    Input
+    -----
+    cloud_field : array-like
+        1D array containing the observed cloud heights
+    priority : string
+        given priority if several heights have similar cloudiness
+        "highest_first" returns the upper most layer,
+        "lowest_first" returns the lower most layer
+    """
+    if priority == "lowest_first":
+        return cloud_field[np.argmax(np.bincount(cloud_field))-np.min(cloud_field)]
+    elif priority == "highest_first":
+        return cloud_field[(np.max(cloud_field)-np.argmax(np.bincount(cloud_field)[::-1]))-np.min(cloud_field)]

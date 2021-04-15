@@ -16,13 +16,16 @@ import ccam  # noqa: E402
 import cftime
 import numpy as np
 import scipy.ndimage as ndimage
+import pandas as pd
 import xarray as xr
+from functools import partial
 from netCDF4 import num2date
 from omegaconf import OmegaConf
 from skimage.measure import regionprops
 from tqdm import tqdm as tqdm
 
 sys.path.append(".")
+import meteorology as met
 
 
 def get_args():
@@ -35,6 +38,15 @@ def get_args():
         help="Provide filenamefmt of the input.",
         default="MMCR__MBR__Spectral_Moments__10s__155m-*km__{date}??.nc",
     )
+
+    parser.add_argument(
+        "--inputfilefmt_wind",
+        metavar="/path/to/inputfile_{date}??.nc",
+        required=False,
+        help="Provide filenamefmt of the wind input data.",
+        default=None,
+    )
+
     parser.add_argument(
         "-o",
         "--outputfilefmt",
@@ -63,6 +75,16 @@ def get_args():
         required=False,
         default=(1, 10),
         nargs=2,
+        type=int,
+    )
+
+    parser.add_argument(
+        "--wind-window",
+        metavar="10",
+        help="Averaging running window for wind data in seconds",
+        required=False,
+        default=3600,
+        nargs=1,
         type=int,
     )
 
@@ -146,6 +168,7 @@ ANALYSIS = True
 cloud_threshold = input_args["cloud_threshold"]
 max_hgt_idx = input_args["max_range"]
 stencil_label = np.ones(input_args["cloud_stencil"])  # height, time
+running_window_wind = input_args["wind_window"]
 date_YYYYMM = input_args["date"]
 date_YYMM = date_YYYYMM[2:]
 min_cloud_percentage = input_args["min_cloud_type"]
@@ -173,7 +196,20 @@ if RESAMPLE:
         glob.glob(input_args["inputfilefmt"].format(date=date_YYMM))
     )  # data_dir+"MMCR__MBR__Spectral_Moments__10s__155m-*km__18010?.nc"))
 
-    logging.info("Files found: {}".format(len(input_radar_files)))
+    logging.info("Radar files found: {}".format(len(input_radar_files)))
+
+    if input_args["inputfilefmt_wind"] is not None:
+        winddata = True
+        logging.info("Including wind data")
+        input_wind_files = sorted(
+            glob.glob(input_args["inputfilefmt_wind"].format(date=date_YYYYMM))
+        )
+
+        logging.info("Wind files found: {}".format(len(input_wind_files)))
+    else:
+        logging.warning("No wind data provided. If this is a mistake, please provide the path to the wind data"
+                        "with inputfilefmt_wind.")
+        winddata = False
 
     # Sort files by datestamp in filename
     #  because parameters of max height change in file
@@ -209,6 +245,8 @@ if RESAMPLE:
     # Open files
     xr.set_options(file_cache_maxsize=2)
     d = xr.open_mfdataset(np.array(input_radar_files)[idx_sort], combine="by_coords")
+    if winddata:
+        d_wind = xr.open_mfdataset(np.array(input_wind_files), combine="by_coords")
 
     Z = d["Zf"][:, :max_hgt_idx]
     ranges = d["range"][:max_hgt_idx]
@@ -218,6 +256,12 @@ if RESAMPLE:
     # RESAMPLE
     Z_ = Z.resample(time="10S").nearest(tolerance="5S")  # .first(skipna=False)
     Z = Z_
+
+    if winddata:
+        logging.info("Reindex wind data onto radar time grid")
+        w = d_wind["VEL"]
+        w_ = w.reindex(time=Z.time, method='nearest', tolerance='6S')
+        w = w_
 
     try:
         times_unix = np.int64(Z_.time.values) / 1e9
@@ -235,6 +279,11 @@ if RESAMPLE:
     )
     ds = dc.create_dataset(OmegaConf.merge(runtime_cfg, cfg.datasets.resampled))
     ds["Zf"].data = Z
+    if winddata:
+        ds["sfc_wind"].data = w.values
+    else:
+        del ds["sfc_wind"]
+
     attrs_dict = {
         "source_files_used": np.array(input_radar_files)[idx_sort],
         "creation_date": datetime.datetime.now().strftime("%d/%m/%Y %H:%M"),
@@ -298,6 +347,12 @@ if LABELING:
     ds_label["label"].data = labels_original.T
     ds_label["Z"].data = data.T
 
+    if "sfc_wind" in Z_.data_vars and "sfc_wind" in ds_label.data_vars:
+        winddata = True
+        ds_label["sfc_wind"].data = Z_["sfc_wind"]
+    else:
+        winddata = False
+
     ds_label.to_netcdf(filename_label, encoding={'Z':{'zlib':True}, 'label':{'zlib':True}})
 
 
@@ -356,8 +411,32 @@ if ANALYSIS:
     unique_labels = np.unique(labels_0)
     unique_labels = unique_labels[1:]
 
+    # Estimate wind data at all altitudes by power law
+    if "sfc_wind" in labels_netCDF.data_vars:
+        logging.info("Detected wind data. Estimate wind profiles.")
+        winddata = True
+        sfc_wind_df = labels_netCDF.sfc_wind.to_dataframe()
+        sfc_wind_df.index = pd.to_datetime(labels_netCDF.time.values,
+                                           unit='s')  # num2date(labels_netCDF.time, "seconds since 1970-01-01")
+        try:
+            running_window_wind_avg = sfc_wind_df.rolling("1H", center=True).mean()
+        except NotImplementedError:
+            logging.warning("Center window average is not implemented. Using standard method.")
+            running_window_wind_avg = sfc_wind_df.rolling("1H").mean()  # Method center is unfortunately not implemented
+
+        wind_2D_func = lambda u_mean, heights: met.wind_profile_power_func(u_mean, 25)(heights)
+        wind_profile_func = partial(wind_2D_func, heights=labels_netCDF.range / 1000)
+        ds_1 = xr.Dataset.from_dataframe(running_window_wind_avg)
+        da_wind = xr.apply_ufunc(wind_profile_func, ds_1.sfc_wind, output_core_dims=[("range",)], vectorize=True)
+        da_wind = da_wind.assign_coords({"range": labels_netCDF.range / 1000})
+    else:
+        winddata = False
+
     # Cloud entity analysis
-    cloud_prop = np.empty((len(unique_labels), 15))
+    if winddata:
+        cloud_prop = np.empty((len(unique_labels), 18))
+    else:
+        cloud_prop = np.empty((len(unique_labels), 15))
     cloud_prop[:] = np.nan
 
     # Create arrays of the size (time, height) for detailed properties
@@ -368,7 +447,7 @@ if ANALYSIS:
     CTH[:, :] = np.nan
     cloud_type[:, :] = np.nan
 
-    for cloud in tqdm(unique_labels[0:]):
+    for c,cloud in enumerate(tqdm(unique_labels[0:])):
 
         #  def retrieve_cloud_information(cloud):
         entity_start_time = (
@@ -417,6 +496,14 @@ if ANALYSIS:
         cths = cths[~np.isnan(cths)]
 
         entity_len = len(cbhs)
+        if winddata:
+            # Get height of max cloud fraction, to be most representative of whole
+            # cloud system. Here the highest and therefore windiest heights are chosen.
+            hgt_of_max_cf = ranges[ccam.calc_hgt_of_max_cf(idx[0], "highest_first")]
+            entity_len_km = float(entity_len*da_wind.sel(range=hgt_of_max_cf,
+                                                   index=slice(labels_netCDF.time[idx[1].min()],
+                                                               labels_netCDF.time[idx[1].max()])
+                                                   ).mean()/1000)
         entity_cloud_type, StSc_idx, Cu_idx, ND_len = ent_hp.estimate_cloud_type(
             cbhs, cths, min_ctype_percentage=min_cloud_percentage
         )
@@ -444,6 +531,24 @@ if ANALYSIS:
                 StSc_thickness_std,
             ) = ent_hp.get_stsc_macrophysics(StSc_idx, cbhs, cths)
 
+        if winddata:
+            # Translate cloud entity temporal extend to spatial
+            # extent.
+            if len(Cu_idx) >= 1:
+                mean_Cu_hgt = np.nanmean((cbhs[Cu_idx] + cths[Cu_idx]) / 2)
+                mean_wind_at_Cu_hgt = da_wind.sel(range=mean_Cu_hgt, method='nearest').sel(
+                    index=labels_netCDF.time[idx[1][Cu_idx]]).mean()
+                Cu_extent_km = float(mean_wind_at_Cu_hgt * Cu_extent)/1000
+            else:
+                Cu_extent_km = 0
+            if len(StSc_idx)>=1:
+                mean_StSc_hgt = np.nanmean((cbhs[StSc_idx]+cths[StSc_idx])/2)
+                mean_wind_at_StSc_hgt = da_wind.sel(range=mean_StSc_hgt, method='nearest').sel(
+                    index=labels_netCDF.time[idx[1][StSc_idx]]).mean()
+                StSc_extent_km = float(mean_wind_at_StSc_hgt * StSc_extent)/1000
+            else:
+                StSc_extent_km = 0
+
         # Write results to array
         properties = [
             cloud,
@@ -462,6 +567,10 @@ if ANALYSIS:
             StSc_thickness_std,
             ND_len,
         ]
+        if winddata:
+            properties.extend([entity_len_km, Cu_extent_km, StSc_extent_km])
+            if c == 0:
+                properties_str.extend(["entity_len_km", "Cu_extent_km", "StSc_extent_km"])
         #     return properties
         for p, prop in enumerate(properties):
             cloud_prop[int(cloud) - 1, p] = prop
@@ -472,8 +581,14 @@ if ANALYSIS:
         cloud_data_xr[variable] = ("entity", cloud_prop[:, v + 1].astype("float32"))
 
     # Merge analysis and label data
-    cloud_data_merged = xr.merge([cloud_data_xr, Z_])
-    cloud_data_merged["label"] = (["range", "time"], labels_original)
+    cloud_data_merged = xr.merge([cloud_data_xr, labels_netCDF])
+    if winddata:
+        cloud_data_merged["wind_estimate"] = (["time", "range"], da_wind.data)
+        cloud_data_merged["wind_estimate"].attrs['description'] = (
+            "Power-law estimated wind speed from surface wind measurements."
+        )
+        cloud_data_merged["wind_estimate"].attrs['units'] = "m/s"
+    cloud_data_merged["label"] = (["range", "time"], labels)
     cloud_data_merged["label"].attrs["stencil"] = str(stencil_label.shape)
     cloud_data_merged["label"].attrs["reflectiviy_threshold"] = cloud_threshold
     cloud_data_merged["label"].attrs["description"] = (

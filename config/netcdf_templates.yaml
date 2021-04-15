@@ -18,6 +18,11 @@ datasets:
                 coordinates:
                     - time
                     - range
+            sfc_wind:
+                attrs:
+                    units: "m/s"
+                coordinates:
+                    - time
 
         coordinates:
             time:
@@ -71,3 +76,8 @@ datasets:
                 coordinates:
                     - time
                     - range
+            sfc_wind:
+                attrs:
+                    units: "m/s"
+                coordinates:
+                    - time
