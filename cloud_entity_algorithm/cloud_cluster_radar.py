@@ -165,6 +165,8 @@ RESAMPLE = True
 LABELING = True
 ANALYSIS = True
 
+radar_dt_s = 10  # seconds between two radar measurements
+
 cloud_threshold = input_args["cloud_threshold"]
 max_hgt_idx = input_args["max_range"]
 stencil_label = np.ones(input_args["cloud_stencil"])  # height, time
@@ -505,7 +507,7 @@ if ANALYSIS:
             entity_len_km = float(entity_len*da_wind.sel(range=hgt_of_max_cf,
                                                    index=slice(labels_netCDF.time[idx[1].min()],
                                                                labels_netCDF.time[idx[1].max()])
-                                                   ).mean()/1000)
+                                                   ).mean()/1000)*radar_dt_s
         entity_cloud_type, StSc_idx, Cu_idx, ND_len = ent_hp.estimate_cloud_type(
             cbhs, cths, min_ctype_percentage=min_cloud_percentage
         )
