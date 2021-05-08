@@ -346,7 +346,8 @@ if LABELING:
 
     ds_label = ds_label.assign_coords({"time": Z_.time, "range": Z_.range})
     ds_label["label"].data = labels_original.T
-    ds_label["Z"].data = data.T
+    ds_label["Z"].data = Zz.data
+    ds_label["Z_mask"].data = data.T
 
     if "sfc_wind" in Z_.data_vars and "sfc_wind" in ds_label.data_vars:
         winddata = True
@@ -354,7 +355,7 @@ if LABELING:
     else:
         winddata = False
 
-    ds_label.to_netcdf(filename_label, encoding={'Z':{'zlib':True}, 'label':{'zlib':True}})
+    ds_label.to_netcdf(filename_label, encoding={'Z_mask':{'zlib':True, 'dtype':np.int8},'Z':{'zlib':True}, 'label':{'zlib':True}})
 
 
 if ANALYSIS:
@@ -395,7 +396,7 @@ if ANALYSIS:
     labels_netCDF = xr.open_dataset(filename_label)
     labels_netCDF.load()
     labels = labels_netCDF["label"].T
-    data = labels_netCDF["Z"].T
+    data = labels_netCDF["Z_mask"].T
     ranges = labels_netCDF["range"] / 1000
     times = labels_netCDF["time"]  # num2date(labels_netCDF["time"] / 1e9, "seconds since 1970-01-01")
 
@@ -640,6 +641,7 @@ if ANALYSIS:
         filename_entity,
         encoding={
             "Z": {"zlib": True},
+            "Z_mask":{"zlib": True, "dtype":np.int8},
             "label": {"zlib": True},
             "CTH": {"zlib": True},
             "CBH": {"zlib": True},

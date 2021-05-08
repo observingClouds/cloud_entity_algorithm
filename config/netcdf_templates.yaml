@@ -72,6 +72,12 @@ datasets:
                     - range
             Z:
                 attrs:
+                    units: "dBZ"
+                coordinates:
+                    - time
+                    - range
+            Z_mask:
+                attrs:
                     units: ""
                 coordinates:
                     - time
